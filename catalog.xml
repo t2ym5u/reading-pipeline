@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:opds="http://opds-spec.org/2010/catalog">
+  <title>Reading Pipeline</title>
+  <id>urn:reading-pipeline:catalog</id>
+  <updated>2026-07-01T00:00:00Z</updated>
+  <link rel="self" href="/catalog.xml" type="application/atom+xml;profile=opds-catalog;kind=navigation"/>
+</feed>
