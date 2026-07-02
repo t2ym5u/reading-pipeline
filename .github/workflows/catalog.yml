@@ -22,6 +22,20 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Encrypt unencrypted EPUBs
+        if: env.EPUB_ENCRYPT_KEY != ''
+        env:
+          EPUB_ENCRYPT_KEY: ${{ secrets.EPUB_ENCRYPT_KEY }}
+        run: |
+          for epub in library/*.epub; do
+            [ -f "$epub" ] || continue
+            if file "$epub" | grep -q "Zip archive"; then
+              openssl enc -aes-256-cbc -pbkdf2 -k "$EPUB_ENCRYPT_KEY" \
+                -in "$epub" -out "$epub.tmp" && mv "$epub.tmp" "$epub"
+              echo "Encrypted: $epub"
+            fi
+          done
+
       - name: Update catalog
         env:
           PAGES_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}

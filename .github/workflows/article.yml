@@ -33,6 +33,15 @@ jobs:
           ARTICLE_URL: ${{ github.event.issue.title }}
         run: python scripts/fetch.py "$ARTICLE_URL"
 
+      - name: Encrypt EPUB
+        if: env.EPUB_ENCRYPT_KEY != ''
+        env:
+          EPUB_ENCRYPT_KEY: ${{ secrets.EPUB_ENCRYPT_KEY }}
+        run: |
+          epub="library/${{ steps.fetch.outputs.epub_filename }}"
+          openssl enc -aes-256-cbc -pbkdf2 -k "$EPUB_ENCRYPT_KEY" \
+            -in "$epub" -out "$epub.tmp" && mv "$epub.tmp" "$epub"
+
       - name: Update catalog
         env:
           PAGES_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
