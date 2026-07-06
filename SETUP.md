@@ -19,7 +19,9 @@ Settings → Actions → General → Workflow permissions → **Read and write p
 
 Settings → Developer settings → Personal access tokens → Fine-grained tokens
 - Repository : `reading-pipeline`
-- Permission : **Issues → Read and write**
+- Permissions :
+  - **Issues → Read and write** (articles)
+  - **Contents → Read and write** (EPUBs)
 
 ---
 
@@ -45,7 +47,32 @@ Nomme-le **"Save to Reading"** → apparaît dans la feuille de partage de Safar
 
 ---
 
-## 6. Android — HTTP Shortcuts
+## 6. iOS — Raccourci pour uploader un EPUB
+
+Crée un second Raccourci **"Upload EPUB"** :
+
+```
+1. [Recevoir] "Reçoit" → Fichiers → depuis la feuille de partage
+2. [Obtenir le nom] du fichier reçu  → stocke dans "Nom"
+3. [Encoder] [Entrée du raccourci] → Base64
+4. [Dictionnaire] → ajouter :
+     "message" : "add: [Nom]"
+     "content" : [Résultat encodé]
+5. [Obtenir le contenu de l'URL]
+     URL     : https://api.github.com/repos/t2ym5u/reading-pipeline/contents/library/[Nom]
+     Méthode : PUT
+     En-têtes :
+       Authorization  → Bearer ghp_VOTRE_TOKEN
+       Content-Type   → application/json
+     Corps : [Dictionnaire de l'étape 4]
+6. [Afficher une notification] "✅ EPUB uploadé"
+```
+
+Partager un EPUB depuis Readwise, Fichiers, Mail → "Upload EPUB" → disponible sur la liseuse en ~1 min.
+
+---
+
+## 7. Android — HTTP Shortcuts
 
 Installe **HTTP Shortcuts** (Play Store, gratuit).
 

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Save Article</title>
+  <title>Reading Pipeline</title>
   <style>
     * { box-sizing: border-box; }
     body {
@@ -14,14 +14,20 @@
       background: #f6f8fa;
     }
     h2 { margin-top: 0; }
+    h3 { margin: 2rem 0 0; font-size: 1rem; border-top: 1px solid #d0d7de; padding-top: 1.5rem; }
     label { display: block; font-size: 0.85rem; font-weight: 600; margin: 1rem 0 0.25rem; }
-    input {
+    input[type="password"], input[type="url"] {
       width: 100%;
       padding: 0.5rem 0.75rem;
       border: 1px solid #d0d7de;
       border-radius: 6px;
       font-size: 0.95rem;
       background: white;
+    }
+    input[type="file"] {
+      width: 100%;
+      margin-top: 0.25rem;
+      font-size: 0.9rem;
     }
     button {
       margin-top: 1.25rem;
@@ -35,7 +41,7 @@
       cursor: pointer;
     }
     button:disabled { opacity: 0.5; cursor: default; }
-    #status {
+    .status {
       margin-top: 1rem;
       padding: 0.75rem 1rem;
       border-radius: 6px;
@@ -44,29 +50,45 @@
     }
     .ok  { background: #d1fae5; color: #065f46; }
     .err { background: #fee2e2; color: #991b1b; }
+    progress { width: 100%; margin-top: 0.5rem; display: none; }
     details { margin-top: 2rem; font-size: 0.82rem; color: #57606a; }
     details summary { cursor: pointer; font-weight: 600; }
     code { background: #eee; padding: 0.1em 0.3em; border-radius: 3px; }
   </style>
 </head>
 <body>
-  <h2>📖 Save Article</h2>
+  <h2>📖 Reading Pipeline</h2>
 
   <label>Token GitHub</label>
   <input id="token" type="password" placeholder="ghp_…" autocomplete="off">
 
+  <!-- ── Article ──────────────────────────────────────── -->
+  <h3>📰 Sauvegarder un article</h3>
+
   <label>URL de l'article</label>
   <input id="url" type="url" placeholder="https://…">
 
-  <button id="btn" onclick="save()">Sauvegarder</button>
-  <div id="status"></div>
+  <button id="btn-article" onclick="saveArticle()">Sauvegarder l'article</button>
+  <div id="status-article" class="status"></div>
+
+  <!-- ── EPUB ─────────────────────────────────────────── -->
+  <h3>📚 Uploader un EPUB</h3>
+
+  <label>Fichier EPUB</label>
+  <input id="epub" type="file" accept=".epub,.mobi,.pdf">
+  <progress id="progress" max="100"></progress>
+
+  <button id="btn-epub" onclick="uploadEpub()">Uploader l'EPUB</button>
+  <div id="status-epub" class="status"></div>
 
   <details>
-    <summary>Créer un token GitHub</summary>
+    <summary>Token requis</summary>
     <p>
-      Va sur <strong>github.com → Settings → Developer settings → Personal access tokens → Fine-grained tokens</strong>.<br>
-      Sélectionne ce repo, accorde <code>Issues: Read and write</code>.<br>
-      Le token est stocké uniquement dans ce navigateur (localStorage).
+      <strong>github.com → Settings → Developer settings → Fine-grained tokens</strong><br>
+      Repo <code>reading-pipeline</code>, permissions :<br>
+      • <code>Issues: Read and write</code> (articles)<br>
+      • <code>Contents: Read and write</code> (EPUBs)<br>
+      Le token est stocké dans ce navigateur (localStorage).
     </p>
   </details>
 
@@ -74,28 +96,35 @@
     const OWNER = 't2ym5u';
     const REPO  = 'reading-pipeline';
 
-    // Pre-fill URL from ?url= param (bookmarklet / Shortcut)
     const urlParam = new URLSearchParams(location.search).get('url');
     if (urlParam) document.getElementById('url').value = urlParam;
 
-    // Restore token
     const stored = localStorage.getItem('rp_gh_token');
     if (stored) document.getElementById('token').value = stored;
 
-    document.addEventListener('keydown', e => { if (e.key === 'Enter') save(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Enter') saveArticle(); });
 
-    async function save() {
-      const token = document.getElementById('token').value.trim();
+    function getToken() {
+      const t = document.getElementById('token').value.trim();
+      if (t) localStorage.setItem('rp_gh_token', t);
+      return t;
+    }
+
+    function setStatus(id, ok, msg) {
+      const el = document.getElementById(id);
+      el.className = 'status ' + (ok ? 'ok' : 'err');
+      el.textContent = msg;
+      el.style.display = 'block';
+    }
+
+    async function saveArticle() {
+      const token = getToken();
       const url   = document.getElementById('url').value.trim();
       if (!token || !url) return;
 
-      localStorage.setItem('rp_gh_token', token);
-
-      const btn    = document.getElementById('btn');
-      const status = document.getElementById('status');
-      btn.disabled    = true;
-      btn.textContent = 'Envoi…';
-      status.style.display = 'none';
+      const btn = document.getElementById('btn-article');
+      btn.disabled = true; btn.textContent = 'Envoi…';
+      document.getElementById('status-article').style.display = 'none';
 
       try {
         const res  = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/issues`, {
@@ -105,21 +134,69 @@
         });
         const data = await res.json();
         if (res.ok) {
-          status.className   = 'ok';
-          status.textContent = `✅ En cours de traitement — issue #${data.number}`;
+          setStatus('status-article', true, `✅ En cours de traitement — issue #${data.number}`);
           document.getElementById('url').value = '';
         } else {
-          status.className   = 'err';
-          status.textContent = `❌ ${data.message}`;
+          setStatus('status-article', false, `❌ ${data.message}`);
         }
       } catch (e) {
-        status.className   = 'err';
-        status.textContent = `❌ ${e.message}`;
+        setStatus('status-article', false, `❌ ${e.message}`);
+      }
+      btn.disabled = false; btn.textContent = 'Sauvegarder l\'article';
+    }
+
+    async function uploadEpub() {
+      const token = getToken();
+      const file  = document.getElementById('epub').files[0];
+      if (!token || !file) return;
+
+      const btn      = document.getElementById('btn-epub');
+      const progress = document.getElementById('progress');
+      btn.disabled = true; btn.textContent = 'Lecture…';
+      progress.style.display = 'block'; progress.value = 10;
+      document.getElementById('status-epub').style.display = 'none';
+
+      try {
+        const base64 = await toBase64(file);
+        progress.value = 40;
+        btn.textContent = 'Upload…';
+
+        // Sanitise filename
+        const filename = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const res = await fetch(
+          `https://api.github.com/repos/${OWNER}/${REPO}/contents/library/${filename}`,
+          {
+            method:  'PUT',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body:    JSON.stringify({
+              message: `add: ${filename}`,
+              content: base64,
+            }),
+          }
+        );
+        progress.value = 100;
+        const data = await res.json();
+        if (res.ok) {
+          setStatus('status-epub', true, `✅ ${filename} uploadé — catalogue mis à jour dans ~1 min`);
+          document.getElementById('epub').value = '';
+        } else {
+          setStatus('status-epub', false, `❌ ${data.message}`);
+        }
+      } catch (e) {
+        setStatus('status-epub', false, `❌ ${e.message}`);
       }
 
-      status.style.display = 'block';
-      btn.disabled    = false;
-      btn.textContent = 'Sauvegarder';
+      progress.style.display = 'none';
+      btn.disabled = false; btn.textContent = 'Uploader l\'EPUB';
+    }
+
+    function toBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload  = e => resolve(e.target.result.split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
     }
   </script>
 </body>
