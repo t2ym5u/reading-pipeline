@@ -1,17 +1,12 @@
 #!/usr/bin/env python3
 import sys
 import os
-import re
 import subprocess
 import tempfile
+import uuid
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 import trafilatura
-
-
-def slugify(text):
-    text = re.sub(r"[^\w\s-]", "", text.lower())
-    return re.sub(r"[\s_-]+", "-", text)[:60].strip("-")
 
 
 def fetch_article(url):
@@ -72,8 +67,7 @@ def main():
     title, content_html = fetch_article(url)
 
     date = datetime.now(timezone.utc)
-    slug = slugify(title) or slugify(urlparse(url).path)
-    filename = f"{date.strftime('%Y-%m-%d')}-{slug}.epub"
+    filename = f"{uuid.uuid4()}.epub"
     path = os.path.join("library", filename)
 
     print(f"Converting to EPUB: {title}")

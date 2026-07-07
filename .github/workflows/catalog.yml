@@ -22,6 +22,26 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Rename EPUBs to UUID
+        if: env.EPUB_ENCRYPT_KEY != ''
+        env:
+          EPUB_ENCRYPT_KEY: ${{ secrets.EPUB_ENCRYPT_KEY }}
+        run: |
+          python3 - <<'EOF'
+          import os, uuid, re
+          UUID_RE = re.compile(
+              r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+          )
+          for f in os.listdir("library"):
+              if not f.endswith(".epub"):
+                  continue
+              stem = f[:-5]
+              if not UUID_RE.match(stem):
+                  new_name = str(uuid.uuid4()) + ".epub"
+                  os.rename(f"library/{f}", f"library/{new_name}")
+                  print(f"Renamed: {f} → {new_name}")
+          EOF
+
       - name: Encrypt unencrypted EPUBs
         if: env.EPUB_ENCRYPT_KEY != ''
         env:
@@ -39,12 +59,15 @@ jobs:
       - name: Update catalog
         env:
           PAGES_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
+          EPUB_ENCRYPT_KEY: ${{ secrets.EPUB_ENCRYPT_KEY }}
         run: python scripts/update_catalog.py
 
       - name: Commit and push
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add catalog.xml
+          git add library/
+          [ -f catalog.xml ]     && git add catalog.xml
+          [ -f catalog.xml.enc ] && git add catalog.xml.enc
           git diff --cached --quiet || git commit -m "catalog: update after EPUB upload"
           git push
