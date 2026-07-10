@@ -93,7 +93,7 @@
     <p>
       <strong>github.com → Settings → Developer settings → Fine-grained tokens</strong><br>
       Repo <code>reading-pipeline</code>, permissions :<br>
-      • <code>Issues: Read and write</code> (articles)<br>
+      • <code>Actions: Read and write</code> (articles)<br>
       • <code>Contents: Read and write</code> (EPUBs)<br>
       Le token est stocké dans ce navigateur (localStorage).
     </p>
@@ -134,16 +134,16 @@
       document.getElementById('status-article').style.display = 'none';
 
       try {
-        const res  = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/issues`, {
+        const res = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/dispatches`, {
           method:  'POST',
           headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-          body:    JSON.stringify({ title: url }),
+          body:    JSON.stringify({ event_type: 'fetch-article', client_payload: { url } }),
         });
-        const data = await res.json();
-        if (res.ok) {
-          setStatus('status-article', true, `✅ En cours de traitement — issue #${data.number}`);
+        if (res.status === 204) {
+          setStatus('status-article', true, '✅ En cours de traitement — vérifie l\'onglet Actions');
           document.getElementById('url').value = '';
         } else {
+          const data = await res.json();
           setStatus('status-article', false, `❌ ${data.message}`);
         }
       } catch (e) {
@@ -168,15 +168,14 @@
         progress.value = 40;
         btn.textContent = 'Upload…';
 
-        // Sanitise filename
-        const filename = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const filename = crypto.randomUUID() + '.epub';
         const res = await fetch(
           `https://api.github.com/repos/${OWNER}/${REPO}/contents/library/${filename}`,
           {
             method:  'PUT',
             headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
             body:    JSON.stringify({
-              message: `add: ${filename}`,
+              message: 'add: new epub',
               content: base64,
             }),
           }
