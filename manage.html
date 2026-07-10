@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bibliothèque — Reading Pipeline</title>
+  <link rel="icon" href="icons/favicon.svg">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#cf222e">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Reading">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      background: #f6f8fa;
+      color: #1f2328;
+      min-height: 100dvh;
+    }
+
+    .wrap { max-width: 460px; margin: 0 auto; padding: 1.25rem 1.5rem 3rem; }
+
+    /* ── Navigation ─────────────────────────────────── */
+    .back {
+      display: inline-flex;
+      align-items: center;
+      gap: .25rem;
+      font-size: .85rem;
+      color: #656d76;
+      text-decoration: none;
+      margin-bottom: 1.25rem;
+      padding: .25rem 0;
+    }
+    .back:hover { color: #1f2328; }
+
+    h1 { font-size: 1.25rem; font-weight: 700; margin-bottom: 1.25rem; letter-spacing: -.01em; }
+
+    /* ── Cards ───────────────────────────────────────── */
+    .card {
+      background: #fff;
+      border: 1px solid #d0d7de;
+      border-radius: 10px;
+      padding: 1.125rem 1.25rem;
+      margin-bottom: .875rem;
+      box-shadow: 0 1px 3px rgba(31,35,40,.05);
+    }
+
+    .card-label {
+      font-size: .7rem;
+      font-weight: 700;
+      color: #656d76;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      margin-bottom: .875rem;
+    }
+
+    /* ── Form fields ─────────────────────────────────── */
+    label {
+      display: block;
+      font-size: .82rem;
+      font-weight: 600;
+      color: #1f2328;
+      margin: .75rem 0 .3rem;
+    }
+    label:first-of-type { margin-top: 0; }
+
+    .input {
+      width: 100%;
+      padding: .5rem .75rem;
+      border: 1px solid #d0d7de;
+      border-radius: 6px;
+      font-size: .95rem;
+      color: #1f2328;
+      background: #fff;
+      outline: none;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .input::placeholder { color: #afb8c1; }
+    .input:focus { border-color: #2da44e; box-shadow: 0 0 0 3px rgba(45,164,78,.14); }
+
+    /* ── Buttons ─────────────────────────────────────── */
+    .btn {
+      display: block; width: 100%;
+      padding: .6rem 1rem;
+      border: none; border-radius: 6px;
+      font-size: .9rem; font-weight: 600;
+      cursor: pointer; text-align: center;
+      margin-top: .875rem;
+      transition: background .1s, opacity .1s, transform .1s;
+    }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+    .btn:active:not(:disabled) { transform: scale(.99); }
+    .btn-green { background: #2da44e; color: #fff; }
+    .btn-green:hover:not(:disabled) { background: #218838; }
+    .btn-red { background: #cf222e; color: #fff; }
+    .btn-red:hover:not(:disabled) { background: #b91c1c; }
+
+    /* ── Status ──────────────────────────────────────── */
+    .status {
+      margin-top: .75rem;
+      padding: .6rem .875rem;
+      border-radius: 6px;
+      font-size: .85rem;
+      line-height: 1.45;
+    }
+    .ok  { background: #d1fae5; color: #065f46; }
+    .err { background: #fee2e2; color: #991b1b; }
+
+    /* ── Library section ─────────────────────────────── */
+    #library { margin-top: .25rem; }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: .625rem;
+      padding: .625rem .875rem;
+      background: #fff;
+      border: 1px solid #d0d7de;
+      border-radius: 8px;
+      margin-bottom: .5rem;
+      font-size: .85rem;
+      box-shadow: 0 1px 2px rgba(31,35,40,.04);
+    }
+    .toolbar input[type=checkbox] { width: 1rem; height: 1rem; flex-shrink: 0; cursor: pointer; }
+    .toolbar label { margin: 0; font-weight: 500; cursor: pointer; }
+    .count { margin-left: auto; font-size: .78rem; color: #656d76; }
+
+    .file-item {
+      display: flex;
+      align-items: center;
+      gap: .75rem;
+      padding: .75rem .875rem;
+      background: #fff;
+      border: 1px solid #d0d7de;
+      border-radius: 8px;
+      margin-bottom: .4rem;
+      cursor: pointer;
+      transition: border-color .1s, background .1s;
+    }
+    .file-item:has(input:checked) { border-color: #cf222e; background: #fff5f5; }
+    .file-item input[type=checkbox] {
+      width: 1rem; height: 1rem; flex-shrink: 0;
+      cursor: pointer; accent-color: #cf222e;
+    }
+    .file-info { flex: 1; min-width: 0; }
+    .file-title {
+      font-weight: 600; font-size: .875rem;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .file-meta { font-size: .75rem; color: #656d76; margin-top: .125rem; }
+    .file-empty {
+      text-align: center; padding: 2rem 1rem;
+      color: #656d76; font-size: .9rem;
+      background: #fff; border: 1px solid #d0d7de;
+      border-radius: 8px;
+    }
+
+    /* ── Help details ────────────────────────────────── */
+    details { margin-top: .5rem; }
+    summary {
+      cursor: pointer;
+      font-size: .8rem;
+      font-weight: 600;
+      color: #656d76;
+      padding: .35rem 0;
+      list-style: none;
+      display: flex;
+      align-items: center;
+      gap: .3rem;
+    }
+    summary::before { content: '›'; transition: transform .15s; display: inline-block; }
+    details[open] summary::before { transform: rotate(90deg); }
+    .help-body {
+      margin-top: .5rem;
+      padding: .875rem 1rem;
+      background: #fff;
+      border: 1px solid #d0d7de;
+      border-radius: 8px;
+      font-size: .8rem;
+      color: #656d76;
+      line-height: 1.65;
+    }
+    code { background: #f0f2f4; padding: .1em .35em; border-radius: 4px; font-size: .88em; color: #1f2328; }
+
+    /* ── Dark mode ───────────────────────────────────── */
+    @media (prefers-color-scheme: dark) {
+      body { background: #0d1117; color: #e6edf3; }
+      .card, .toolbar, .file-item, .file-empty, .help-body { background: #161b22; border-color: #30363d; }
+      .input { background: #0d1117; border-color: #30363d; color: #e6edf3; }
+      .input:focus { border-color: #3fb950; box-shadow: 0 0 0 3px rgba(63,185,80,.15); }
+      .file-item:has(input:checked) { border-color: #f85149; background: #1a0a0a; }
+      code { background: #21262d; color: #e6edf3; }
+      .back, summary, .count, .file-meta { color: #8b949e; }
+      .back:hover { color: #e6edf3; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <a href="index.html" class="back">‹ Reading Pipeline</a>
+    <h1>📂 Bibliothèque</h1>
+
+    <!-- Credentials -->
+    <div class="card">
+      <p class="card-label">Authentification</p>
+      <label for="token">Token GitHub</label>
+      <input id="token" type="password" class="input" placeholder="ghp_…" autocomplete="off">
+      <label for="enc-key">Clé de déchiffrement</label>
+      <input id="enc-key" type="password" class="input" placeholder="EPUB_ENCRYPT_KEY" autocomplete="off">
+      <button id="btn-load" class="btn btn-green" onclick="loadLibrary()">Charger la bibliothèque</button>
+    </div>
+
+    <div id="status" class="status" style="display:none"></div>
+
+    <!-- File list (hidden until loaded) -->
+    <div id="library" style="display:none">
+      <div class="toolbar">
+        <input type="checkbox" id="select-all" onchange="toggleAll(this.checked)">
+        <label for="select-all">Tout sélectionner</label>
+        <span class="count" id="count"></span>
+      </div>
+      <div id="file-list"></div>
+      <button id="btn-delete" class="btn btn-red" onclick="deleteSelected()" disabled>
+        Supprimer la sélection
+      </button>
+    </div>
+
+    <details>
+      <summary>Permissions requises</summary>
+      <div class="help-body">
+        <strong>Settings → Developer settings → Fine-grained tokens</strong><br>
+        Repo <code>reading-pipeline</code> :<br>
+        • <code>Contents: Read and write</code><br><br>
+        Les credentials sont stockés dans <code>localStorage</code>.<br>
+        Survoler un titre pour voir l'UUID du fichier.
+      </div>
+    </details>
+  </div>
+
+  <script>
+    const OWNER = 't2ym5u';
+    const REPO  = 'reading-pipeline';
+
+    const storedToken = localStorage.getItem('rp_gh_token');
+    if (storedToken) document.getElementById('token').value = storedToken;
+    const storedKey = localStorage.getItem('rp_enc_key');
+    if (storedKey) document.getElementById('enc-key').value = storedKey;
+
+    function getToken() {
+      const t = document.getElementById('token').value.trim();
+      if (t) localStorage.setItem('rp_gh_token', t);
+      return t;
+    }
+
+    function getEncKey() {
+      const k = document.getElementById('enc-key').value.trim();
+      if (k) localStorage.setItem('rp_enc_key', k);
+      return k;
+    }
+
+    function setStatus(ok, msg) {
+      const el = document.getElementById('status');
+      el.className = 'status ' + (ok ? 'ok' : 'err');
+      el.textContent = msg;
+      el.style.display = 'block';
+    }
+
+    function formatSize(bytes) {
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(0) + ' Ko';
+      return (bytes / (1024 * 1024)).toFixed(1) + ' Mo';
+    }
+
+    // Mirrors: openssl enc -aes-256-cbc -pbkdf2 -d (10 000 iterations, SHA-256)
+    async function decryptOpenSSL(base64, password) {
+      const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+      if (new TextDecoder().decode(bytes.slice(0, 8)) !== 'Salted__')
+        throw new Error('magic OpenSSL absent — mauvaise clé ?');
+
+      const salt       = bytes.slice(8, 16);
+      const ciphertext = bytes.slice(16);
+
+      const km = await crypto.subtle.importKey(
+        'raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']
+      );
+      const bits = await crypto.subtle.deriveBits(
+        { name: 'PBKDF2', salt, iterations: 10000, hash: 'SHA-256' }, km, 384
+      );
+      const d   = new Uint8Array(bits);
+      const key = await crypto.subtle.importKey('raw', d.slice(0, 32), { name: 'AES-CBC' }, false, ['decrypt']);
+      const plain = await crypto.subtle.decrypt({ name: 'AES-CBC', iv: d.slice(32, 48) }, key, ciphertext);
+      return new TextDecoder().decode(plain);
+    }
+
+    function parseTSV(tsv) {
+      const map = {};
+      for (const line of tsv.trim().split('\n')) {
+        const [f, t] = line.split('\t');
+        if (f) map[f] = t || null;
+      }
+      return map;
+    }
+
+    let fileData = {}; // filename → { sha, size, title }
+
+    async function loadLibrary() {
+      const token = getToken();
+      const key   = getEncKey();
+      if (!token) { setStatus(false, '❌ Token manquant'); return; }
+
+      const btn = document.getElementById('btn-load');
+      btn.disabled = true;
+      btn.textContent = 'Chargement…';
+      document.getElementById('library').style.display = 'none';
+      document.getElementById('status').style.display = 'none';
+
+      try {
+        const hdrs = { Authorization: `Bearer ${token}` };
+
+        const [listRes, idxRes] = await Promise.all([
+          fetch(`https://api.github.com/repos/${OWNER}/${REPO}/contents/library`, { headers: hdrs }),
+          key
+            ? fetch(`https://api.github.com/repos/${OWNER}/${REPO}/contents/library/index.tsv.enc`, { headers: hdrs })
+            : Promise.resolve(null),
+        ]);
+
+        if (!listRes.ok) throw new Error((await listRes.json()).message || `HTTP ${listRes.status}`);
+
+        const files = await listRes.json();
+        const epubs = files.filter(f => f.name.endsWith('.epub'));
+
+        let titles = {};
+        if (idxRes && idxRes.ok) {
+          try {
+            const idx = await idxRes.json();
+            const tsv = await decryptOpenSSL(idx.content.replace(/\n/g, ''), key);
+            titles = parseTSV(tsv);
+          } catch (e) {
+            setStatus(false, `⚠️ Déchiffrement échoué : ${e.message}`);
+          }
+        }
+
+        fileData = {};
+        for (const f of epubs)
+          fileData[f.name] = { sha: f.sha, size: f.size, title: titles[f.name] || null };
+
+        renderLibrary();
+        document.getElementById('library').style.display = 'block';
+
+      } catch (e) {
+        setStatus(false, `❌ ${e.message}`);
+      }
+
+      btn.disabled = false;
+      btn.textContent = 'Actualiser';
+    }
+
+    function renderLibrary() {
+      const list  = document.getElementById('file-list');
+      const names = Object.keys(fileData);
+      list.innerHTML = '';
+
+      if (names.length === 0) {
+        list.innerHTML = '<div class="file-empty">Bibliothèque vide</div>';
+        updateBar();
+        return;
+      }
+
+      for (const name of names) {
+        const { sha, size, title } = fileData[name];
+
+        const item = document.createElement('div');
+        item.className = 'file-item';
+        item.onclick = e => { if (e.target.tagName !== 'INPUT') cb.click(); };
+
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.dataset.filename = name;
+        cb.dataset.sha = sha;
+        cb.addEventListener('change', updateBar);
+
+        const info = document.createElement('div');
+        info.className = 'file-info';
+
+        const t = document.createElement('div');
+        t.className = 'file-title';
+        t.textContent = title || name;
+        if (title) t.title = name;
+
+        const m = document.createElement('div');
+        m.className = 'file-meta';
+        m.textContent = formatSize(size);
+
+        info.append(t, m);
+        item.append(cb, info);
+        list.append(item);
+      }
+      updateBar();
+    }
+
+    function toggleAll(checked) {
+      document.querySelectorAll('#file-list input[type=checkbox]').forEach(cb => cb.checked = checked);
+      updateBar();
+    }
+
+    function updateBar() {
+      const sel   = document.querySelectorAll('#file-list input[type=checkbox]:checked');
+      const total = Object.keys(fileData).length;
+      const btn   = document.getElementById('btn-delete');
+      document.getElementById('count').textContent = `${total} fichier${total > 1 ? 's' : ''}`;
+      btn.disabled = sel.length === 0;
+      btn.textContent = sel.length > 0
+        ? `Supprimer ${sel.length} fichier${sel.length > 1 ? 's' : ''}`
+        : 'Supprimer la sélection';
+    }
+
+    async function deleteSelected() {
+      const token = getToken();
+      const sel   = [...document.querySelectorAll('#file-list input[type=checkbox]:checked')];
+      if (!sel.length || !token) return;
+
+      const btn = document.getElementById('btn-delete');
+      btn.disabled = true;
+      document.getElementById('status').style.display = 'none';
+
+      let done = 0, failed = 0;
+      for (const cb of sel) {
+        const { filename, sha } = cb.dataset;
+        btn.textContent = `Suppression ${done + failed + 1}/${sel.length}…`;
+
+        const res = await fetch(
+          `https://api.github.com/repos/${OWNER}/${REPO}/contents/library/${filename}`,
+          {
+            method:  'DELETE',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ message: 'remove: epub', sha }),
+          }
+        );
+
+        if (res.ok) { done++; delete fileData[filename]; }
+        else {
+          failed++;
+          const d = await res.json().catch(() => ({}));
+          console.error(`Échec suppression ${filename}:`, d.message);
+        }
+      }
+
+      document.getElementById('select-all').checked = false;
+      renderLibrary();
+
+      if (failed === 0)
+        setStatus(true, `✅ ${done} fichier${done > 1 ? 's' : ''} supprimé${done > 1 ? 's' : ''} — catalogue mis à jour dans ~1 min`);
+      else
+        setStatus(false, `⚠️ ${done} supprimé${done > 1 ? 's' : ''}, ${failed} échec${failed > 1 ? 's' : ''} (voir console)`);
+    }
+  </script>
+</body>
+</html>
