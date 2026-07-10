@@ -51,7 +51,7 @@ def epub_title(epub_path):
             ns_c = "urn:oasis:names:tc:opendocument:xmlns:container"
             opf_path = container.find(f".//{{{ns_c}}}rootfile").get("full-path")
             opf = ET.fromstring(z.read(opf_path))
-            el = opf.find(f".//{{{'{http://purl.org/dc/elements/1.1/}'}}title")
+            el = opf.find(".//{http://purl.org/dc/elements/1.1/}title")
             return el.text if el is not None else None
     except Exception:
         return None
