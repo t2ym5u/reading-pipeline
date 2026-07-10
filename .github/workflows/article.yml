@@ -1,19 +1,18 @@
 name: Fetch Article
+run-name: fetch article
 
 on:
-  issues:
-    types: [opened]
+  repository_dispatch:
+    types: [fetch-article]
 
 permissions:
   contents: write
-  issues: write
   pages: write
   id-token: write
 
 jobs:
   fetch:
     runs-on: ubuntu-latest
-    if: startsWith(github.event.issue.title, 'http')
 
     steps:
       - uses: actions/checkout@v4
@@ -30,7 +29,7 @@ jobs:
       - name: Fetch article
         id: fetch
         env:
-          ARTICLE_URL: ${{ github.event.issue.title }}
+          ARTICLE_URL: ${{ github.event.client_payload.url }}
         run: python scripts/fetch.py "$ARTICLE_URL"
 
       - name: Encrypt EPUB
@@ -55,36 +54,6 @@ jobs:
           git add library/
           [ -f catalog.xml ]     && git add catalog.xml
           [ -f catalog.xml.enc ] && git add catalog.xml.enc
-          git commit -m "add: ${{ steps.fetch.outputs.epub_title }}"
+          git commit -m "add: new article"
           git push
 
-      - name: Comment and close issue
-        if: success()
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const filename = '${{ steps.fetch.outputs.epub_filename }}'
-            const { owner, repo } = context.repo
-            const pagesUrl = `https://${owner}.github.io/${repo}`
-            await github.rest.issues.createComment({
-              owner, repo,
-              issue_number: context.issue.number,
-              body: `✅ Article ajouté à la bibliothèque.\n\n📥 [Télécharger l'EPUB](${pagesUrl}/library/${filename})\n\n📚 Catalogue OPDS : \`${pagesUrl}/catalog.xml\``
-            })
-            await github.rest.issues.update({
-              owner, repo,
-              issue_number: context.issue.number,
-              state: 'closed'
-            })
-
-      - name: Comment on failure
-        if: failure()
-        uses: actions/github-script@v7
-        with:
-          script: |
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              body: '❌ Impossible de récupérer l\'article. Vérifie que l\'URL est accessible (pas de paywall).'
-            })
