@@ -2,7 +2,7 @@
   "name": "Reading Pipeline",
   "short_name": "Reading",
   "description": "Sauvegarde d'articles et d'EPUBs vers votre bibliothèque OPDS",
-  "start_url": "/reading-pipeline/save.html",
+  "start_url": "/reading-pipeline/",
   "scope": "/reading-pipeline/",
   "display": "standalone",
   "background_color": "#f6f8fa",
