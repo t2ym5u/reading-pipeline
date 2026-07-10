@@ -4,6 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Reading Pipeline</title>
+  <link rel="manifest" href="/reading-pipeline/manifest.json">
+  <meta name="theme-color" content="#2da44e">
+  <link rel="apple-touch-icon" href="/reading-pipeline/icons/icon-192.png">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Reading">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <style>
     * { box-sizing: border-box; }
     body {
@@ -197,6 +204,10 @@
         reader.onerror = reject;
         reader.readAsDataURL(file);
       });
+    }
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/reading-pipeline/sw.js', { scope: '/reading-pipeline/' });
     }
   </script>
 </body>
