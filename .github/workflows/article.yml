@@ -14,6 +14,12 @@ jobs:
   fetch:
     runs-on: ubuntu-latest
 
+    # Job level, not step level: a step's own `env:` is applied after its `if:`
+    # is evaluated, so guarding a step on a key it defines itself is a coin
+    # toss. Declared here, the guard and the step see the same value.
+    env:
+      EPUB_ENCRYPT_KEY: ${{ secrets.EPUB_ENCRYPT_KEY }}
+
     steps:
       - uses: actions/checkout@v4
 
@@ -34,26 +40,30 @@ jobs:
 
       - name: Encrypt EPUB
         if: env.EPUB_ENCRYPT_KEY != ''
-        env:
-          EPUB_ENCRYPT_KEY: ${{ secrets.EPUB_ENCRYPT_KEY }}
         run: |
           epub="library/${{ steps.fetch.outputs.epub_filename }}"
-          openssl enc -aes-256-cbc -pbkdf2 -k "$EPUB_ENCRYPT_KEY" \
-            -in "$epub" -out "$epub.tmp" && mv "$epub.tmp" "$epub"
+          if [ "$(head -c 8 "$epub")" = "Salted__" ]; then
+            echo "Already encrypted: $epub"
+          else
+            openssl enc -aes-256-cbc -pbkdf2 -k "$EPUB_ENCRYPT_KEY" \
+              -in "$epub" -out "$epub.tmp" && mv "$epub.tmp" "$epub"
+          fi
+          [ "$(head -c 8 "$epub")" = "Salted__" ] || {
+            echo "::error::$epub is not encrypted"; exit 1; }
 
       - name: Update catalog
         env:
           PAGES_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
-          EPUB_ENCRYPT_KEY: ${{ secrets.EPUB_ENCRYPT_KEY }}
         run: python scripts/update_catalog.py
 
       - name: Commit and push
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add library/
-          [ -f catalog.xml ]     && git add catalog.xml
-          [ -f catalog.xml.enc ] && git add catalog.xml.enc
-          git commit -m "add: new article"
+          # -A so that the plaintext catalog.xml update_catalog.py deletes
+          # once a key is set is actually staged as a deletion, instead of
+          # lingering tracked and published forever.
+          git add -A library/ catalog.xml catalog.xml.enc
+          git diff --cached --quiet || git commit -m "add: new article"
           git push
 
