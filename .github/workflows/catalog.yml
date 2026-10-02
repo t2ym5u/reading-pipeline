@@ -47,6 +47,42 @@ jobs:
                   print(f"Renamed: {f} → {new_name}")
           EOF
 
+      - name: Record titles before encrypting
+        if: env.EPUB_ENCRYPT_KEY != ''
+        run: |
+          python3 - <<'EOF'
+          import os, sys
+          from datetime import datetime, timezone
+          sys.path.insert(0, "scripts")
+          from update_catalog import epub_title
+
+          # update_catalog.py reads a book's title out of the zip, which stops
+          # working the moment the file is encrypted -- and that happens in the
+          # next step. Left alone it falls back to the filename, so every
+          # manually uploaded book would be catalogued under its UUID. The
+          # article workflow does not need this: fetch.py already knows the
+          # title and writes it to the index itself.
+          #
+          # Recording the date here also pins it. Without an index entry,
+          # collect_entries() falls back to the file's mtime, which in CI is
+          # the checkout time -- so the catalog would reshuffle on every run.
+          lines = []
+          for f in sorted(os.listdir("library")):
+              if not f.endswith(".epub"):
+                  continue
+              path = os.path.join("library", f)
+              with open(path, "rb") as fh:
+                  if fh.read(8) == b"Salted__":
+                      continue   # already encrypted, so already in the index
+              title = epub_title(path) or f[:-5]
+              date = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+              lines.append(f"{f}\t{title}\t\t{date}\n")
+              print(f"Indexed: {f} -> {title}")
+          if lines:
+              with open("library/index.tsv", "a", encoding="utf-8") as fh:
+                  fh.writelines(lines)
+          EOF
+
       - name: Encrypt unencrypted EPUBs
         if: env.EPUB_ENCRYPT_KEY != ''
         run: |
