@@ -56,14 +56,38 @@ jobs:
           PAGES_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
         run: python scripts/update_catalog.py
 
+      - name: Verify nothing plaintext is about to be committed
+        if: env.EPUB_ENCRYPT_KEY != ''
+        run: |
+          # A key is configured, so anything readable reaching the commit below
+          # would be published readable by anyone. Fail instead: publishing in
+          # the clear is worse than not publishing.
+          fail=0
+          for epub in library/*.epub; do
+            [ -f "$epub" ] || continue
+            if [ "$(head -c 8 "$epub")" != "Salted__" ]; then
+              echo "::error::$epub is not encrypted"; fail=1
+            fi
+          done
+          # update_catalog.py only deletes these once their encrypted twin was
+          # written; if encryption failed they survive, and `git add -A` would
+          # happily commit them.
+          for leftover in catalog.xml library/index.tsv; do
+            if [ -e "$leftover" ]; then
+              echo "::error::$leftover is still plaintext"; fail=1
+            fi
+          done
+          exit $fail
+
       - name: Commit and push
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          # -A so that the plaintext catalog.xml update_catalog.py deletes
-          # once a key is set is actually staged as a deletion, instead of
-          # lingering tracked and published forever.
-          git add -A library/ catalog.xml catalog.xml.enc
+          # -A over the whole tree, so the plaintext catalog.xml that
+          # update_catalog.py deletes once a key is set is staged as a
+          # deletion. Naming the paths explicitly made the run die with
+          # "pathspec did not match any files" the moment that file was gone
+          # for good. The step above is what makes this safe.
+          git add -A
           git diff --cached --quiet || git commit -m "add: new article"
           git push
-
